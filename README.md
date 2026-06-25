@@ -58,6 +58,27 @@ cat gold/volume_increase_watch.sql | sed 's/{{project}}/your-project/g' | bq que
 CREATE OR REPLACE MODEL `your-project.stock_gold.xgb_predictor` ...
 ```
 
+## バックテスト
+
+```bash
+# 全戦略のバックテストを一括実行
+cat gold/backtest_accuracy.sql | sed 's/{{project}}/your-project/g' | bq query --use_legacy_sql=false
+```
+
+結果テーブル:
+| テーブル | 内容 |
+|---|---|
+| `backtest_results` | 日次×全モデル予測横並び + 実際リターン + 合成シグナル |
+| `backtest_model_summary` | モデル別: MAE/RMSE/方向一致率/的中平均リターン |
+| `backtest_signal_performance` | シグナル別: 勝率/平均リターン/Sharpe比/DD |
+| `backtest_cumulative_returns` | 累積リターン曲線（可視化用） |
+
+```sql
+-- 最優秀戦略を確認
+SELECT * FROM `your-project.stock_gold.backtest_signal_performance`
+ORDER BY sharpe_ratio_annualized DESC;
+```
+
 ## Colab で動かす
 
 各記事末尾の `[▶ Colabで動かす]` リンクからノートブックを開き、自身の GCP プロジェクト ID を設定して実行。
@@ -72,9 +93,11 @@ stock-bqml/
 │   └── features_daily.sql   # テクニカル指標 + 出来高漸増指標計算
 ├── gold/
 │   ├── train_xgb.sql        # XGBoost モデル学習
-│   ├── predict.sql          # 予測クエリ
-│   ├── explain.sql          # 特徴量重要度・SHAP風解釈
-│   └── volume_increase_watch.sql  # 出来高漸増銘柄監視
+|   ├── predict.sql          # 予測クエリ
+|   ├── explain.sql          # 特徴量重要度・SHAP風解釈
+|   ├── volume_increase_watch.sql  # 出来高漸増銘柄監視
+|   ├── strategies.sql       # 4戦略別モデル (momentum/breakout/volume-confirm/reversal)
+|   └── backtest_accuracy.sql # 全戦略のバックテスト精度比較
 ├── colab/
 │   └── poc_pipeline.ipynb   # Silver→Gold 実行ノートブック
 └── docs/
