@@ -30,6 +30,13 @@ SELECT
   volume_chg_pct,
   volume_incr_streak,
   volume_surge_flag,
+  -- MACD（トレンドの強さ）
+  macd_line,
+  macd_signal,
+  macd_histogram,
+  -- ボリンジャー（トレンド相場の位置）
+  bb_pct_b,
+  bb_bandwidth,
   next_day_return
 FROM `{{project}}.stock_silver.features_daily`
 WHERE date < '2024-01-01';
@@ -60,6 +67,10 @@ SELECT
   volume_vs_sma_ratio,
   volume_surge_flag,
   volume_chg_pct,
+  -- ボラティリティ指標
+  bb_bandwidth,
+  atr_14,
+  bb_pct_b,
   next_day_return
 FROM `{{project}}.stock_silver.features_daily`
 WHERE date < '2024-01-01';
@@ -101,6 +112,9 @@ SELECT
   volume_incr_streak,
   volume_surge_flag,
   volume_price_divergence,
+  -- MACD（出来主導の勢い）
+  macd_histogram,
+  atr_14,
   next_day_return
 FROM scored
 WHERE date < '2024-01-01';
@@ -130,6 +144,9 @@ SELECT
   -- RSI過買い/過売りの極端度
   ABS(rsi_14 - 50) AS rsi_extremity,
   std_20,
+  -- ボリンジャー乖離（過剰感）
+  bb_pct_b,
+  macd_histogram,
   next_day_return
 FROM `{{project}}.stock_silver.features_daily`
 WHERE date < '2024-01-01';

@@ -7,7 +7,7 @@
 | レイヤー | 実装 | 役割 |
 |---|---|---|
 | Bronze | Go (`bronze/collector.go`) | 株価APIから生データを取得し、BigQuery の JSON 型カラムへストリーミング投入 |
-| Silver | BQML SQL (`silver/`) | テクニカル指標（移動平均、RSI、ラグ特徴量、**出来高漸増指標**）を生成。特徴量ストア |
+| Silver | BQML SQL (`silver/`) | テクニカル指標（移動平均、RSI、MACD、ボリンジャーバンド、ATR、ラグ特徴量、出来高漸増指標）を生成。特徴量ストア |
 | Gold | BQML SQL (`gold/`) | XGBoost モデル学習・予測。ML.EXPLAIN_PREDICT で解釈性確保 + **出来高漸増銘柄監視** |
 | Orchestration | Colab (`colab/poc_pipeline.ipynb`) | Silver→Gold をノートブックで実行。可視化付き |
 

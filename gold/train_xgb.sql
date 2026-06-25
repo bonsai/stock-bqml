@@ -36,6 +36,17 @@ SELECT
   volume_chg_pct,
   volume_incr_streak,
   volume_surge_flag,
+  -- MACD
+  macd_line,
+  macd_signal,
+  macd_histogram,
+  -- ボリンジャーバンド
+  bb_upper,
+  bb_lower,
+  bb_pct_b,
+  bb_bandwidth,
+  -- ATR
+  atr_14,
   next_day_return
 FROM `{{project}}.stock_silver.features_daily`
 WHERE date < '2024-01-01'  -- 学習期間: ここを修正
