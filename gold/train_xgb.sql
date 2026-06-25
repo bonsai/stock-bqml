@@ -32,6 +32,10 @@ SELECT
   std_20,
   rsi_14,
   volume_sma_5,
+  volume_vs_sma_ratio,
+  volume_chg_pct,
+  volume_incr_streak,
+  volume_surge_flag,
   next_day_return
 FROM `{{project}}.stock_silver.features_daily`
 WHERE date < '2024-01-01'  -- 学習期間: ここを修正
