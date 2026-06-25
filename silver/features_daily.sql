@@ -24,6 +24,12 @@ CREATE OR REPLACE TABLE `{{project}}.stock_silver.features_daily` (
   rsi_14 NUMERIC,
   -- 出来高移動平均
   volume_sma_5 INT64,
+  -- 出来高漸増指標
+  volume_vs_sma_ratio NUMERIC,  -- 当日出来高 / SMA5
+  volume_lag_1d INT64,
+  volume_chg_pct NUMERIC,       -- 前日比(%)
+  volume_incr_streak INT64,     -- 連続増加日数
+  volume_surge_flag BOOL,       -- 急増フラグ(前日比150%以上)
   -- 目的変数: 翌日リターン（%）
   next_day_return NUMERIC,
   -- その他メタ
@@ -60,6 +66,20 @@ USING (
     ))) AS NUMERIC) AS rsi_14,
     -- 出来高移動平均
     CAST(AVG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS INT64) AS volume_sma_5,
+    -- 出来高漸増指標
+    SAFE_DIVIDE(volume, CAST(AVG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS INT64)) AS volume_vs_sma_ratio,
+    LAG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) AS volume_lag_1d,
+    SAFE_DIVIDE(volume - LAG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)), LAG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp))) * 100 AS volume_chg_pct,
+    -- 連続増加日数: 過去20日で volume > lag(volume) が連続している日数
+    ARRAY_LENGTH(
+      ARRAY(
+        SELECT AS STRUCT 1
+        FROM UNNEST(GENERATE_ARRAY(0, 19)) AS n
+        WHERE LAG(volume, n + 1) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) > IFNULL(LAG(volume, n + 2) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)), -1)
+        AND LAG(volume, n + 1) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) IS NOT NULL
+      )
+    ) AS volume_incr_streak,
+    SAFE_DIVIDE(volume, LAG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp))) >= 1.5 AS volume_surge_flag,
     -- 目的変数（翌日の終値変化率）
     SAFE_DIVIDE(LEAD(close) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) - close, close) * 100 AS next_day_return,
     CURRENT_TIMESTAMP() AS _extracted_at
