@@ -41,6 +41,9 @@ CREATE OR REPLACE TABLE `{{project}}.stock_silver.features_daily` (
   bb_bandwidth NUMERIC,         -- バンド幅 = (bb_upper - bb_lower) / sma_20
   -- ATR（Average True Range, 14日）
   atr_14 NUMERIC,               -- 14日平均True Range
+  -- 月末・四半期末
+  month_end_zone STRING,        -- 'month_end'(3日以内), 'last_week'(4-7日), 'other'
+  quarter_end_flag BOOL,        -- 四半期末3営業日以内
   -- 目的変数: 翌日リターン（%）
   next_day_return NUMERIC,
   -- その他メタ
@@ -137,6 +140,15 @@ USING (
       ABS(high - close_lag_1d),
       ABS(low - close_lag_1d)
     )) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS atr_14,
+    -- 月末・四半期末
+    DATE_DIFF(LAST_DAY(date), date, DAY) AS _days_to_month_end,
+    CASE
+      WHEN DATE_DIFF(LAST_DAY(date), date, DAY) <= 2 THEN 'month_end'
+      WHEN DATE_DIFF(LAST_DAY(date), date, DAY) <= 7 THEN 'last_week'
+      ELSE 'other'
+    END AS month_end_zone,
+    EXTRACT(MONTH FROM date) IN (3,6,9,12)
+      AND DATE_DIFF(LAST_DAY(date), date, DAY) <= 2 AS quarter_end_flag,
     -- 目的変数
     next_day_return,
     _extracted_at

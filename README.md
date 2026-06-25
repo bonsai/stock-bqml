@@ -97,7 +97,8 @@ stock-bqml/
 |   ├── explain.sql          # 特徴量重要度・SHAP風解釈
 |   ├── volume_increase_watch.sql  # 出来高漸増銘柄監視
 |   ├── strategies.sql       # 4戦略別モデル (momentum/breakout/volume-confirm/reversal)
-|   └── backtest_accuracy.sql # 全戦略のバックテスト精度比較
+|   ├── backtest_accuracy.sql # 全戦略のバックテスト精度比較
+|   └── anomaly_discovery.sql # セグメント別アノマリー発掘（DOW/月/月末/クロス）
 ├── colab/
 │   └── poc_pipeline.ipynb   # Silver→Gold 実行ノートブック
 └── docs/
