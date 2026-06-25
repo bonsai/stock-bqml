@@ -99,9 +99,13 @@ stock-bqml/
 |   ├── strategies.sql       # 4戦略別モデル (momentum/breakout/volume-confirm/reversal)
 |   ├── backtest_accuracy.sql # 全戦略のバックテスト精度比較
 |   ├── anomaly_discovery.sql # セグメント別アノマリー発掘（DOW/月/月末/クロス）
-|   └── arena.sql            # 10人エージェント生存競争アリーナ
-├── colab/
-│   └── poc_pipeline.ipynb   # Silver→Gold 実行ノートブック
+|   ├── arena.sql            # 10人エージェント生存競争アリーナ
+|   ├── arena_ga.sql          # GA戦略進化: 遺伝子プール・週タイプ分類・シグナル合成
+|   ├── arena_screening.sql   # 銘柄スクリーニング: 3銘柄キャップ
+|   └── arena_backlog.sql     # トレード履歴: バックログ・週次P&L・生存スコア
+ ├── colab/
+ │   ├── poc_pipeline.ipynb   # Silver→Gold 実行ノートブック
+ │   └── arena_ga.ipynb       # GAエンジン: 淘汰・交叉・突然変異ループ
 └── docs/
     └── ARCHITECTURE.md      # 詳細設計・データフロー図
 ```
