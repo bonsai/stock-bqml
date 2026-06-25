@@ -1,0 +1,25 @@
+# Go
+bronze/collector
+bronze/*.exe
+bronze/go.sum
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# GCP
+*.json
+!colab/*.json
+.key/
+.service-account/
+
+# Data
+*.csv
+*.db
+*.sqlite
+*.parquet
+
+# OS
+.DS_Store
+Thumbs.db
