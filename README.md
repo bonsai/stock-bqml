@@ -91,23 +91,21 @@ stock-bqml/
 │   └── collector.go         # Go: API→BQ ストリーミング
 ├── silver/
 │   └── features_daily.sql   # テクニカル指標 + 出来高漸増指標計算
-├── gold/
-│   ├── train_xgb.sql        # XGBoost モデル学習
-|   ├── predict.sql          # 予測クエリ
-|   ├── explain.sql          # 特徴量重要度・SHAP風解釈
-|   ├── volume_increase_watch.sql  # 出来高漸増銘柄監視
-|   ├── strategies.sql       # 4戦略別モデル (momentum/breakout/volume-confirm/reversal)
-|   ├── backtest_accuracy.sql # 全戦略のバックテスト精度比較
-|   ├── anomaly_discovery.sql # セグメント別アノマリー発掘（DOW/月/月末/クロス）
-|   ├── arena.sql            # 10人エージェント生存競争アリーナ
-|   ├── arena_ga.sql          # GA戦略進化: 遺伝子プール・週タイプ分類・シグナル合成
-|   ├── arena_screening.sql   # 銘柄スクリーニング: 3銘柄キャップ
-|   └── arena_backlog.sql     # トレード履歴: バックログ・週次P&L・生存スコア
- ├── colab/
- │   ├── poc_pipeline.ipynb   # Silver→Gold 実行ノートブック
- │   └── arena_ga.ipynb       # GAエンジン: 淘汰・交叉・突然変異ループ
-└── docs/
-    └── ARCHITECTURE.md      # 詳細設計・データフロー図
+|── scripts/
+|   └── deploy.sh            # BQ一括デプロイ: ./deploy.sh <project_id>
+├── colab/
+│   ├── poc_pipeline.ipynb   # Silver→Gold 実行ノートブック
+│   └── arena_ga_evolution.ipynb  # GAエンジン: 淘汰・交叉・突然変異ループ
+├── docs/
+|   └── ARCHITECTURE.md      # 詳細設計・データフロー図
+|   └── PRD_GA_ARENA.md     # GA Arena 設計書
+|   └── ESSAY_SQL_AS_LENS.md # SQLという眼鏡
+└── gold/
+    ├── strategies.sql        # 4戦略BQMLモデル定義
+    ├── backtest_accuracy.sql # バックテスト精度比較
+    ├── anomaly_discovery.sql # セグメント別アノマリー発掘
+    ├── arena.sql             # ルールベースシグナル (dow/monthend/sentiment/mean_rev)
+    └── arena_ga.sql          # GA核: 遺伝子プール・シグナル合成・ポジション・週次P&L
 ```
 
 ---
