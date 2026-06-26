@@ -66,12 +66,6 @@ jobs:
       - name: Install deps
         run: pip install -r bronze/ingest/requirements.txt google-cloud-bigquery
 
-      - name: Save GCP credentials
-        id: creds
-        run: |
-          echo "${{ secrets.GCP_CREDENTIALS }}" > /tmp/gcp-key.json
-          echo "key_path=/tmp/gcp-key.json" >> $GITHUB_OUTPUT
-
       - name: Deploy to BigQuery (Silver → Gold)
         run: python gold/arena/deploy.py
         env:
@@ -85,12 +79,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Save GCP credentials
-        run: echo "${{ secrets.GCP_CREDENTIALS }}" > /tmp/gcp-key.json
+      - name: Save SA key & auth
+        env:
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+        run: |
+          echo "$GCP_CREDENTIALS" > /tmp/gcp-key.json
+          gcloud auth activate-service-account --key-file=/tmp/g...on
 
       - name: Run backtest accuracy
         run: |
-          gcloud auth activate-service-account --key-file=/tmp/g...on
           bq query --use_legacy_sql=false \
             --project_id=${{ secrets.BQ_PROJECT || 'gen-lang-client-0315818888' }} \
             "$(sed 's/{{project}}/${{ secrets.BQ_PROJECT || 'gen-lang-client-0315818888' }}/g' gold/reports/backtest_accuracy.sql)"
