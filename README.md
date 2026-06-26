@@ -6,10 +6,9 @@
 
 | レイヤー | 実装 | 役割 |
 |---|---|---|
-| Bronze | Go (`bronze/collector.go`) | 株価APIから生データを取得し、BigQuery の JSON 型カラムへストリーミング投入 |
-| Silver | BQML SQL (`silver/`) | テクニカル指標（移動平均、RSI、MACD、ボリンジャーバンド、ATR、ラグ特徴量、出来高漸増指標）を生成。特徴量ストア |
-| Gold | BQML SQL (`gold/`) | XGBoost モデル学習・予測。ML.EXPLAIN_PREDICT で解釈性確保 + **出来高漸増銘柄監視** |
-| Orchestration | Colab (`colab/poc_pipeline.ipynb`) | Silver→Gold をノートブックで実行。可視化付き |
+| Bronze | Go (`bronze/ingest/collector.go`) | 株価APIから生データを取得し、BigQuery に投入 |
+| Silver | BQML SQL (`silver/features/`) | テクニカル指標（移動平均、RSI、MACD、ボリンジャーバンド、ATR、ラグ特徴量、出来高漸増指標）を生成 |
+| Gold | BQML SQL (`gold/models/`, `gold/arena/`, `gold/reports/`) | XGBoost モデル学習・予測 + GA進化アリーナ + 異常検知・レポート |
 
 ## 出来高漸増監視（新機能）
 
@@ -87,26 +86,19 @@ ORDER BY sharpe_ratio_annualized DESC;
 
 ```
 stock-bqml/
-├── bronze/
-│   └── collector.go         # Go: API→BQ ストリーミング
-├── silver/
-│   └── features_daily.sql   # テクニカル指標 + 出来高漸増指標計算
-|── scripts/
-|   └── deploy.sh            # BQ一括デプロイ: ./deploy.sh <project_id>
-├── colab/
-│   ├── poc_pipeline.ipynb   # Silver→Gold 実行ノートブック
-│   └── arena_ga_evolution.ipynb  # GAエンジン: 淘汰・交叉・突然変異ループ
-├── docs/
-|   └── ARCHITECTURE.md      # 詳細設計・データフロー図
-|   └── PRD_GA_ARENA.md     # GA Arena 設計書
-|   └── ESSAY_SQL_AS_LENS.md # SQLという眼鏡
-└── gold/
-    ├── strategies.sql        # 4戦略BQMLモデル定義
-    ├── backtest_accuracy.sql # バックテスト精度比較
-    ├── anomaly_discovery.sql # セグメント別アノマリー発掘
-    ├── arena.sql             # ルールベースシグナル (dow/monthend/sentiment/mean_rev)
-    └── arena_ga.sql          # GA核: 遺伝子プール・シグナル合成・ポジション・週次P&L
-```
+├── bronze/               # 生データ (Go collector)
+│   ├── ingest/           # 収集コード (collector.go)
+│   ├── raw/              # (将来: 生データスキーマ定義)
+│   └── meta/             # メタ情報
+├── silver/               # 特徴量エンジニアリング
+│   ├── features/         # 特徴量SQL (features_daily.sql)
+│   ├── transforms/       # (将来: データ変換)
+│   └── meta/             # (将来: 特徴量カタログ)
+└── gold/                 # モデル・分析・レポート
+    ├── models/           # BQMLモデル (strategies, xgb, predict, explain)
+    ├── arena/            # GA進化アリーナ (arena_ga.sql, arena.sql, deploy, notebook)
+    └── reports/          # バックテスト, 異常検知, レポート
+
 
 ---
 Generated as a vibe-coding data-engineering portfolio.

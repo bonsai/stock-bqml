@@ -36,11 +36,11 @@ def split_statements(sql):
 
 # 1. Silver
 print("=== Silver ===")
-run_file("silver/features_daily.sql", "features_daily")
+run_file("silver/features/features_daily.sql", "features_daily")
 
 # 2. Gold: Rule signals (from arena.sql)
 print("\n=== Gold: Rule Signals ===")
-raw = open("gold/arena.sql").read().replace('{{project}}', PROJECT)
+raw = open("gold/arena/arena.sql").read().replace('{{project}}', PROJECT)
 for stmt in split_statements(raw):
     m = re.search(r'TABLE\s+`?[\w.-]+`?\.(\w+)', stmt, re.IGNORECASE)
     label = m.group(1) if m else '?'
@@ -51,7 +51,7 @@ for stmt in split_statements(raw):
 
 # 3. GA Arena
 print("\n=== Gold: GA Arena ===")
-raw = open("gold/arena_ga.sql").read().replace('{{project}}', PROJECT)
+raw = open("gold/arena/arena_ga.sql").read().replace('{{project}}', PROJECT)
 for stmt in split_statements(raw):
     m = re.search(r'TABLE\s+`?[\w.-]+`?\.(\w+)', stmt, re.IGNORECASE)
     label = m.group(1) if m else '?'
