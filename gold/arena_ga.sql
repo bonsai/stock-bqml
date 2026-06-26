@@ -113,19 +113,11 @@ WITH feature_signals AS (
     LEAST(1, GREATEST(-1, (volume_vs_sma_ratio - 1) * 3)) AS s_volume,
     LEAST(1, GREATEST(-1, (50 - rsi_14) / 20)) AS s_reversal,
     LEAST(0.5, GREATEST(-0.5,
-      (bb_bandwidth - AVG(bb_bandwidth) OVER (PARTITION BY f.symbol ORDER BY f.date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW))
+      (bb_bandwidth - LAG(bb_bandwidth, 20) OVER (PARTITION BY f.symbol ORDER BY f.date))
       / NULLIF(STDDEV(bb_bandwidth) OVER (PARTITION BY f.symbol ORDER BY f.date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW), 0)
     )) AS s_breakout,
-    COALESCE(ds.dow_signal, 0) AS s_dow,
-    COALESCE(ms.month_end_signal, 0) AS s_monthend,
-    COALESCE(ss.sentiment_signal, 0) AS s_sentiment,
-    COALESCE(mr.mean_rev_signal, 0) AS s_mean_rev,
     f.next_day_return
   FROM `{{project}}.stock_silver.features_daily` f
-  LEFT JOIN `{{project}}.stock_gold.arena_dow_signal` ds USING(date, symbol)
-  LEFT JOIN `{{project}}.stock_gold.arena_monthend_signal` ms USING(date, symbol)
-  LEFT JOIN `{{project}}.stock_gold.arena_sentiment_signal` ss USING(date, symbol)
-  LEFT JOIN `{{project}}.stock_gold.arena_mean_rev_signal` mr USING(date, symbol)
   WHERE f.next_day_return IS NOT NULL
 )
 SELECT
@@ -133,20 +125,14 @@ SELECT
   g.gene_id, g.generation,
   g.strategy_name,
   g.threshold, g.stop_loss, g.take_profit, g.max_hold_days,
-  -- 合成シグナル
-  fs.s_momentum * g.w_momentum
-  + fs.s_volume * g.w_volume
-  + fs.s_reversal * g.w_reversal
-  + fs.s_breakout * g.w_breakout
-  + fs.s_dow * g.w_dow
-  + fs.s_monthend * g.w_monthend
-  + fs.s_sentiment * g.w_sentiment
-  + fs.s_mean_rev * g.w_mean_rev
+  COALESCE(fs.s_momentum, 0) * g.w_momentum
+  + COALESCE(fs.s_volume, 0) * g.w_volume
+  + COALESCE(fs.s_reversal, 0) * g.w_reversal
+  + COALESCE(fs.s_breakout, 0) * g.w_breakout
   AS raw_signal,
   fs.next_day_return,
   fs.s_momentum, fs.s_volume, fs.s_reversal,
-  fs.s_breakout, fs.s_dow, fs.s_monthend,
-  fs.s_sentiment, fs.s_mean_rev
+  fs.s_breakout
 FROM feature_signals fs
 CROSS JOIN `{{project}}.stock_gold.ga_gene_pool` g;
 

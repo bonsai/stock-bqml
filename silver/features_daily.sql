@@ -42,6 +42,7 @@ CREATE OR REPLACE TABLE `{{project}}.stock_silver.features_daily` (
   -- ATR（Average True Range, 14日）
   atr_14 NUMERIC,               -- 14日平均True Range
   -- 月末・四半期末
+  _days_to_month_end INT64,     -- 月末までの残日数
   month_end_zone STRING,        -- 'month_end'(3日以内), 'last_week'(4-7日), 'other'
   quarter_end_flag BOOL,        -- 四半期末3営業日以内
   -- 目的変数: 翌日リターン（%）
@@ -55,51 +56,56 @@ CLUSTER BY symbol;
 -- データ投入（冪等実行可能）
 MERGE `{{project}}.stock_silver.features_daily` T
 USING (
-  WITH base AS (
+  WITH raw_base AS (
     SELECT
       DATE(timestamp) AS date,
       symbol,
-      open,
-      high,
-      low,
-      close,
+      CAST(open AS NUMERIC) AS open,
+      CAST(high AS NUMERIC) AS high,
+      CAST(low AS NUMERIC) AS low,
+      CAST(close AS NUMERIC) AS close,
       volume,
-      -- ラグ
-      LAG(close) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) AS close_lag_1d,
-      LAG(close, 5) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) AS close_lag_5d,
-      LAG(close, 20) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) AS close_lag_20d,
-      -- 移動平均
-      AVG(close) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS sma_5,
-      AVG(close) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS sma_20,
-      AVG(close) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 59 PRECEDING AND CURRENT ROW) AS sma_60,
-      -- ボラティリティ
-      STDDEV(close) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS std_20,
-      -- RSI 14
-      SAFE_CAST(100 - (100 / (1 + (
-        AVG(IF(close > close_lag_1d, close - close_lag_1d, 0)) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) /
-        NULLIF(AVG(IF(close < close_lag_1d, close_lag_1d - close, 0)) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 13 PRECEDING AND CURRENT ROW), 0)
-      ))) AS NUMERIC) AS rsi_14,
-      -- 出来高移動平均
+      LAG(CAST(close AS NUMERIC)) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) AS close_lag_1d,
+      LAG(CAST(close AS NUMERIC), 5) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) AS close_lag_5d,
+      LAG(CAST(close AS NUMERIC), 20) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) AS close_lag_20d,
+      AVG(CAST(close AS NUMERIC)) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS sma_5,
+      AVG(CAST(close AS NUMERIC)) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS sma_20,
+      AVG(CAST(close AS NUMERIC)) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 59 PRECEDING AND CURRENT ROW) AS sma_60,
+      STDDEV(CAST(close AS NUMERIC)) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS std_20,
       CAST(AVG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS INT64) AS volume_sma_5,
-      -- 出来高漸増指標
-      SAFE_DIVIDE(volume, CAST(AVG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS INT64)) AS volume_vs_sma_ratio,
-      LAG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) AS volume_lag_1d,
+      SAFE_DIVIDE(CAST(volume AS NUMERIC), AVG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp) ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)) AS volume_vs_sma_ratio,
+      CAST(LAG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) AS INT64) AS volume_lag_1d,
       SAFE_DIVIDE(volume - LAG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)), LAG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp))) * 100 AS volume_chg_pct,
-      -- 連続増加日数
-      ARRAY_LENGTH(
-        ARRAY(
-          SELECT AS STRUCT 1
-          FROM UNNEST(GENERATE_ARRAY(0, 19)) AS n
-          WHERE LAG(volume, n + 1) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) > IFNULL(LAG(volume, n + 2) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)), -1)
-          AND LAG(volume, n + 1) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) IS NOT NULL
-        )
-      ) AS volume_incr_streak,
       SAFE_DIVIDE(volume, LAG(volume) OVER (PARTITION BY symbol ORDER BY DATE(timestamp))) >= 1.5 AS volume_surge_flag,
-      -- 目的変数（翌日の終値変化率）
       SAFE_DIVIDE(LEAD(close) OVER (PARTITION BY symbol ORDER BY DATE(timestamp)) - close, close) * 100 AS next_day_return,
       CURRENT_TIMESTAMP() AS _extracted_at
     FROM `{{project}}.stock_bronze.raw_daily`
     WHERE DATE(timestamp) >= DATE_SUB(CURRENT_DATE(), INTERVAL 5 YEAR)
+  ),
+  base AS (
+    SELECT
+      *,
+      -- RSI 14 (close_lag_1dはraw_baseで計算済み)
+      SAFE_CAST(100 - (100 / (1 + (
+        AVG(IF(close > close_lag_1d, close - close_lag_1d, 0)) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) /
+        NULLIF(AVG(IF(close < close_lag_1d, close_lag_1d - close, 0)) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW), 0)
+      ))) AS NUMERIC) AS rsi_14,
+      -- 出来高増加フラグ
+      IF(volume > LAG(volume) OVER (PARTITION BY symbol ORDER BY date), 1, 0) AS _vol_increase,
+    FROM raw_base
+  ),
+  streak_grp_feat AS (
+    SELECT
+      * EXCEPT (_vol_increase),
+      _vol_increase,
+      SUM(1 - _vol_increase) OVER (PARTITION BY symbol ORDER BY date) AS _streak_grp
+    FROM base
+  ),
+  streak_feat AS (
+    SELECT
+      * EXCEPT (_vol_increase, _streak_grp),
+      ROW_NUMBER() OVER (PARTITION BY symbol, _streak_grp ORDER BY date) - 1 AS volume_incr_streak
+    FROM streak_grp_feat
   ),
   sma_feat AS (
     SELECT
@@ -107,7 +113,7 @@ USING (
       -- SMA12 / SMA26（MACD用）
       AVG(close) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 11 PRECEDING AND CURRENT ROW) AS sma_12,
       AVG(close) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 25 PRECEDING AND CURRENT ROW) AS sma_26
-    FROM base
+    FROM streak_feat
   ),
   macd_feat AS (
     SELECT
@@ -116,43 +122,69 @@ USING (
       AVG(sma_12) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 8 PRECEDING AND CURRENT ROW) AS sma_12_sma_9,
       AVG(sma_26) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 8 PRECEDING AND CURRENT ROW) AS sma_26_sma_9
     FROM sma_feat
+  ),
+  derived_feat AS (
+    SELECT
+      *,
+      sma_12_sma_9 - sma_26_sma_9 AS macd_signal,
+      macd_line - (sma_12_sma_9 - sma_26_sma_9) AS macd_histogram,
+      -- ボリンジャーバンド
+      sma_20 + 2 * std_20 AS bb_upper,
+      sma_20 - 2 * std_20 AS bb_lower,
+      SAFE_DIVIDE(close - (sma_20 - 2 * std_20), 4 * std_20) AS bb_pct_b,
+      SAFE_DIVIDE(4 * std_20, sma_20) AS bb_bandwidth,
+      -- ATR（14日）
+      AVG(GREATEST(
+        high - low,
+        ABS(high - close_lag_1d),
+        ABS(low - close_lag_1d)
+      )) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS atr_14,
+      -- 月末・四半期末
+      DATE_DIFF(LAST_DAY(date), date, DAY) AS _days_to_month_end,
+      CASE
+        WHEN DATE_DIFF(LAST_DAY(date), date, DAY) <= 2 THEN 'month_end'
+        WHEN DATE_DIFF(LAST_DAY(date), date, DAY) <= 7 THEN 'last_week'
+        ELSE 'other'
+      END AS month_end_zone,
+      EXTRACT(MONTH FROM date) IN (3,6,9,12)
+        AND DATE_DIFF(LAST_DAY(date), date, DAY) <= 2 AS quarter_end_flag
+    FROM macd_feat
   )
   SELECT
-    date, symbol, open, high, low, close, volume,
-    close_lag_1d, close_lag_5d, close_lag_20d,
-    sma_5, sma_20, sma_60,
-    std_20,
-    rsi_14,
-    volume_sma_5,
-    volume_vs_sma_ratio, volume_lag_1d, volume_chg_pct, volume_incr_streak, volume_surge_flag,
-    -- MACD
-    macd_line,
-    sma_12_sma_9 - sma_26_sma_9 AS macd_signal,
-    macd_line - (sma_12_sma_9 - sma_26_sma_9) AS macd_histogram,
-    -- ボリンジャーバンド
-    sma_20 + 2 * std_20 AS bb_upper,
-    sma_20 - 2 * std_20 AS bb_lower,
-    SAFE_DIVIDE(close - (sma_20 - 2 * std_20), 4 * std_20) AS bb_pct_b,
-    SAFE_DIVIDE(4 * std_20, sma_20) AS bb_bandwidth,
-    -- ATR（14日）
-    AVG(GREATEST(
-      high - low,
-      ABS(high - close_lag_1d),
-      ABS(low - close_lag_1d)
-    )) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS atr_14,
-    -- 月末・四半期末
-    DATE_DIFF(LAST_DAY(date), date, DAY) AS _days_to_month_end,
-    CASE
-      WHEN DATE_DIFF(LAST_DAY(date), date, DAY) <= 2 THEN 'month_end'
-      WHEN DATE_DIFF(LAST_DAY(date), date, DAY) <= 7 THEN 'last_week'
-      ELSE 'other'
-    END AS month_end_zone,
-    EXTRACT(MONTH FROM date) IN (3,6,9,12)
-      AND DATE_DIFF(LAST_DAY(date), date, DAY) <= 2 AS quarter_end_flag,
-    -- 目的変数
-    next_day_return,
+    date, symbol,
+    CAST(open AS NUMERIC) AS open,
+    CAST(high AS NUMERIC) AS high,
+    CAST(low AS NUMERIC) AS low,
+    CAST(close AS NUMERIC) AS close,
+    CAST(volume AS INT64) AS volume,
+    CAST(close_lag_1d AS NUMERIC) AS close_lag_1d,
+    CAST(close_lag_5d AS NUMERIC) AS close_lag_5d,
+    CAST(close_lag_20d AS NUMERIC) AS close_lag_20d,
+    CAST(sma_5 AS NUMERIC) AS sma_5,
+    CAST(sma_20 AS NUMERIC) AS sma_20,
+    CAST(sma_60 AS NUMERIC) AS sma_60,
+    CAST(std_20 AS NUMERIC) AS std_20,
+    CAST(rsi_14 AS NUMERIC) AS rsi_14,
+    CAST(volume_sma_5 AS INT64) AS volume_sma_5,
+    CAST(volume_vs_sma_ratio AS NUMERIC) AS volume_vs_sma_ratio,
+    CAST(volume_lag_1d AS INT64) AS volume_lag_1d,
+    CAST(volume_chg_pct AS NUMERIC) AS volume_chg_pct,
+    CAST(volume_incr_streak AS INT64) AS volume_incr_streak,
+    volume_surge_flag,
+    CAST(macd_line AS NUMERIC) AS macd_line,
+    CAST(macd_signal AS NUMERIC) AS macd_signal,
+    CAST(macd_histogram AS NUMERIC) AS macd_histogram,
+    CAST(bb_upper AS NUMERIC) AS bb_upper,
+    CAST(bb_lower AS NUMERIC) AS bb_lower,
+    CAST(bb_pct_b AS NUMERIC) AS bb_pct_b,
+    CAST(bb_bandwidth AS NUMERIC) AS bb_bandwidth,
+    CAST(atr_14 AS NUMERIC) AS atr_14,
+    _days_to_month_end,
+    month_end_zone,
+    quarter_end_flag,
+    CAST(next_day_return AS NUMERIC) AS next_day_return,
     _extracted_at
-  FROM macd_feat
+  FROM derived_feat
 ) S
 ON T.date = S.date AND T.symbol = S.symbol
 WHEN NOT MATCHED THEN
