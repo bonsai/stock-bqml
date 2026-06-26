@@ -24,5 +24,5 @@ SELECT
   -- 目的変数
   next_day_return
 FROM `{{project}}.stock_silver.features_daily`
-WHERE date < '2024-01-01'
+WHERE date < DATE_SUB(CURRENT_DATE(), INTERVAL 180 DAY)
   AND next_day_return IS NOT NULL;

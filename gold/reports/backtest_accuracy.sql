@@ -9,27 +9,27 @@ CREATE OR REPLACE TABLE `{{project}}.stock_gold.backtest_results` AS
 WITH actuals AS (
   SELECT date, symbol, next_day_return
   FROM `{{project}}.stock_silver.features_daily`
-  WHERE date >= '2024-01-01' AND next_day_return IS NOT NULL
+  WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 180 DAY) AND next_day_return IS NOT NULL
 ),
 momentum_pred AS (
   SELECT date, symbol, predicted_next_day_return AS momentum_pred
   FROM ML.PREDICT(MODEL `{{project}}.stock_gold.momentum_model`,
-    (SELECT * EXCEPT(next_day_return) FROM `{{project}}.stock_silver.features_daily` WHERE date >= '2024-01-01'))
+    (SELECT * EXCEPT(next_day_return) FROM `{{project}}.stock_silver.features_daily` WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 180 DAY)))
 ),
 breakout_pred AS (
   SELECT date, symbol, predicted_next_day_return AS breakout_pred
   FROM ML.PREDICT(MODEL `{{project}}.stock_gold.breakout_model`,
-    (SELECT * EXCEPT(next_day_return) FROM `{{project}}.stock_silver.features_daily` WHERE date >= '2024-01-01'))
+    (SELECT * EXCEPT(next_day_return) FROM `{{project}}.stock_silver.features_daily` WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 180 DAY)))
 ),
 vol_confirm_pred AS (
   SELECT date, symbol, predicted_next_day_return AS volume_confirm_pred
   FROM ML.PREDICT(MODEL `{{project}}.stock_gold.volume_confirm_model`,
-    (SELECT * EXCEPT(next_day_return) FROM `{{project}}.stock_silver.features_daily` WHERE date >= '2024-01-01'))
+    (SELECT * EXCEPT(next_day_return) FROM `{{project}}.stock_silver.features_daily` WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 180 DAY)))
 ),
 reversal_pred AS (
   SELECT date, symbol, predicted_next_day_return AS reversal_pred
   FROM ML.PREDICT(MODEL `{{project}}.stock_gold.reversal_model`,
-    (SELECT * EXCEPT(next_day_return) FROM `{{project}}.stock_silver.features_daily` WHERE date >= '2024-01-01'))
+    (SELECT * EXCEPT(next_day_return) FROM `{{project}}.stock_silver.features_daily` WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 180 DAY)))
 )
 SELECT
   a.date,

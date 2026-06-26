@@ -46,8 +46,8 @@ SELECT
   bb_pct_b,
   bb_bandwidth,
   -- ATR
-  atr_14,
-  next_day_return
+  date < DATE_SUB(CURRENT_DATE(), INTERVAL 180 DAY)
+    AND next_day_return
 FROM `{{project}}.stock_silver.features_daily`
 WHERE date < '2024-01-01'  -- 学習期間: ここを修正
 ;

@@ -184,9 +184,9 @@ USING (
     _days_to_month_end,
     month_end_zone,
     quarter_end_flag,
+    CAST(next_day_return AS NUMERIC) AS next_day_return,
     EXTRACT(DAYOFWEEK FROM date) AS day_of_week,
     EXTRACT(MONTH FROM date) AS month_of_year,
-    CAST(next_day_return AS NUMERIC) AS next_day_return,
     _extracted_at
   FROM derived_feat
 ) S
