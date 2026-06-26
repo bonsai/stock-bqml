@@ -1,30 +1,33 @@
 #!/usr/bin/env python3
-"""gold/reports/backtest_accuracy.py — Run backtest_accuracy.sql via BQ CLI-free"""
-import os, sys, tempfile
+"""gold/reports/backtest_accuracy.py — Query backtest results for accuracy report"""
+import os, sys, json, tempfile
 from google.cloud import bigquery
 
 PROJECT = os.environ.get('BQ_PROJECT', 'gen-lang-client-0315818888')
 
-_creds = os.environ.get('GCP_CREDENTIALS')
-if _creds:
-    f = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
-    f.write(_creds)
-    f.close()
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = f.name
+# CI: GCP_CREDENTIALS env → temp file → client
+_creds_json = os.environ.get('GCP_CREDENTIALS')
+if _creds_json:
+    _tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+    _tmp.write(_creds_json)
+    _tmp.close()
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = _tmp.name
 
 client = bigquery.Client(project=PROJECT)
 
-sql = open(os.path.join(os.path.dirname(__file__), 'backtest_accuracy.sql')).read()
-sql = sql.replace('{{project}}', PROJECT)
+print("=== Backtest Model Summary ===")
+job = client.query(f"SELECT * FROM `{PROJECT}.stock_gold.backtest_model_summary`")
+for row in job.result():
+    print(f"  {dict(row)}")
 
-for stmt in sql.split(';'):
-    s = stmt.strip()
-    if not s or s.startswith('--'):
-        continue
-    try:
-        job = client.query(s)
-        rows = list(job.result())
-        if hasattr(job, 'statement_type') and job.statement_type:
-            print(f'  ok  {len(rows)} rows | {job.statement_type}')
-    except Exception as e:
-        print(f'  ERR: {e}')
+print("\n=== Signal Performance ===")
+job = client.query(f"SELECT * FROM `{PROJECT}.stock_gold.backtest_signal_performance` ORDER BY signal")
+for row in job.result():
+    print(f"  {dict(row)}")
+
+print("\n=== Recent Cumulative Returns ===")
+job = client.query(f"SELECT * FROM `{PROJECT}.stock_gold.backtest_cumulative_returns` ORDER BY date DESC LIMIT 5")
+for row in job.result():
+    print(f"  {row.date}: raw={row.raw_cumul:.4f} momentum={row.momentum_cumul:.4f} signal={row.signal_cumul:.4f}")
+
+print("\nDone!")

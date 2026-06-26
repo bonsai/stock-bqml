@@ -48,6 +48,8 @@ CREATE OR REPLACE TABLE `{{project}}.stock_silver.features_daily` (
   -- 目的変数: 翌日リターン（%）
   next_day_return NUMERIC,
   -- その他メタ
+  day_of_week INT64,             -- 曜日 (1=日, 2=月, ..., 7=土)
+  month_of_year INT64,           -- 月 (1-12)
   _extracted_at TIMESTAMP
 )
 PARTITION BY date
@@ -182,6 +184,8 @@ USING (
     _days_to_month_end,
     month_end_zone,
     quarter_end_flag,
+    EXTRACT(DAYOFWEEK FROM date) AS day_of_week,
+    EXTRACT(MONTH FROM date) AS month_of_year,
     CAST(next_day_return AS NUMERIC) AS next_day_return,
     _extracted_at
   FROM derived_feat

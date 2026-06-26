@@ -79,20 +79,40 @@ def split_statements(sql):
 print("=== Silver ===")
 run_file("silver/features/features_daily.sql", "features_daily")
 
-# 2. Gold: Rule signals (from arena.sql)
+# 2. BQML model training
+print("\n=== Gold: BQML Models ===")
+for model_file in [
+    "gold/models/train_momentum.sql",
+    "gold/models/train_breakout.sql",
+    "gold/models/train_volume_confirm.sql",
+    "gold/models/train_reversal.sql",
+]:
+    label = os.path.splitext(os.path.basename(model_file))[0].replace("train_", "")
+    run_file(model_file, label)
+
+# 3. Gold: Rule signals (from arena.sql)
 print("\n=== Gold: Rule Signals ===")
 raw = open("gold/arena/arena.sql").read().replace('{{project}}', PROJECT)
 for stmt in split_statements(raw):
     m = re.search(r'TABLE\s+`?[\w.-]+`?\.(\w+)', stmt, re.IGNORECASE)
     label = m.group(1) if m else '?'
     if 'backtest_results' in stmt.lower():
-        print(f"  ~   {label}: SKIP (needs backtest_results)")
+        # SKIP: arena_signals references backtest_results table (created in step 5)
+        print(f"  ~   {label}: SKIP (depends on backtest_results)")
         continue
     run(stmt, label)
 
-# 3. GA Arena
+# 4. GA Arena
 print("\n=== Gold: GA Arena ===")
 raw = open("gold/arena/arena_ga.sql").read().replace('{{project}}', PROJECT)
+for stmt in split_statements(raw):
+    m = re.search(r'TABLE\s+`?[\w.-]+`?\.(\w+)', stmt, re.IGNORECASE)
+    label = m.group(1) if m else '?'
+    run(stmt, label)
+
+# 5. Backtest results
+print("\n=== Gold: Backtest Results ===")
+raw = open("gold/reports/backtest_accuracy.sql").read().replace('{{project}}', PROJECT)
 for stmt in split_statements(raw):
     m = re.search(r'TABLE\s+`?[\w.-]+`?\.(\w+)', stmt, re.IGNORECASE)
     label = m.group(1) if m else '?'

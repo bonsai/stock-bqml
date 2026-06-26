@@ -52,10 +52,18 @@ SELECT * FROM bqml_preds
 -- 5. DOWスペシャリスト: 過去20週の同日曜日の平均リターンでバイアス
 --    「火曜は買い、金曜は利確」などのパターンを学習
 CREATE OR REPLACE TABLE `{{project}}.stock_gold.arena_dow_signal` AS
-WITH dow_stats AS (
+SELECT
+  f.date,
+  f.symbol,
+  CASE WHEN s.dow_return_std > 0 AND s.dow_return_mean IS NOT NULL
+    THEN LEAST(1, GREATEST(-1, s.dow_return_mean / s.dow_return_std * 0.5))
+    ELSE 0
+  END AS dow_signal
+FROM `{{project}}.stock_silver.features_daily` f
+LEFT JOIN (
   SELECT
+    date,
     symbol,
-    EXTRACT(DAYOFWEEK FROM date) AS dow,
     AVG(next_day_return) OVER (
       PARTITION BY symbol, EXTRACT(DAYOFWEEK FROM date)
       ORDER BY date
@@ -68,22 +76,7 @@ WITH dow_stats AS (
     ) AS dow_return_std
   FROM `{{project}}.stock_silver.features_daily`
   WHERE next_day_return IS NOT NULL
-)
-SELECT
-  date,
-  symbol,
-  -- t値が大きい曜日ほど強く張る。mean/stdが小さいと控えめに
-  CASE WHEN dow_return_std > 0 AND dow_return_mean IS NOT NULL
-    THEN LEAST(1, GREATEST(-1, dow_return_mean / dow_return_std * 0.5))
-    ELSE 0
-  END AS dow_signal
-FROM (
-  SELECT
-    date, symbol,
-    EXTRACT(DAYOFWEEK FROM date) AS dow
-  FROM `{{project}}.stock_silver.features_daily`
-)
-JOIN dow_stats USING (symbol, dow);
+) s ON f.date = s.date AND f.symbol = s.symbol;
 
 -- 6. 月末ハンター: 月末・四半期末のポジション整理を先取り
 --    月末3日はショートバイアス、翌月初1日はリバウンド狙い
