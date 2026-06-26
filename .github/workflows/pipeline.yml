@@ -79,15 +79,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Save SA key & auth
-        env:
-          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-        run: |
-          echo "$GCP_CREDENTIALS" > /tmp/gcp-key.json
-          gcloud auth activate-service-account --key-file=/tmp/g...on
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: '**/requirements*.txt'
+
+      - name: Install deps
+        run: pip install -r bronze/ingest/requirements.txt google-cloud-bigquery
 
       - name: Run backtest accuracy
-        run: |
-          bq query --use_legacy_sql=false \
-            --project_id=${{ secrets.BQ_PROJECT || 'gen-lang-client-0315818888' }} \
-            "$(sed 's/{{project}}/${{ secrets.BQ_PROJECT || 'gen-lang-client-0315818888' }}/g' gold/reports/backtest_accuracy.sql)"
+        run: python gold/reports/backtest_accuracy.py
+        env:
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          BQ_PROJECT: ${{ secrets.BQ_PROJECT || 'gen-lang-client-0315818888' }}
