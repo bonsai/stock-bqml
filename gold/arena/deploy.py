@@ -66,9 +66,9 @@ def split_statements(sql):
     filtered = []
     for stmt in parts:
         clean = stmt.strip()
-        if not clean or clean == ';' or clean.startswith('--'):
+        if not clean or clean == ';':
             continue
-        # Skip if it's only comments and semicolons
+        # Skip if every non-empty line is a comment or bare semicolon
         lines = [l.strip() for l in clean.splitlines() if l.strip()]
         if all(l.startswith('--') or l == ';' for l in lines):
             continue
