@@ -1,0 +1,3 @@
+# Track these CSVs (override root *.csv ignore)
+!*.csv
+!*/

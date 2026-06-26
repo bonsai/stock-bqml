@@ -1,10 +1,22 @@
 #!/usr/bin/env python3
-"""scripts/deploy.py — BQに全SQLを依存順でデプロイ"""
-import os, re, time
+"""gold/arena/deploy.py — BQに全SQLを依存順でデプロイ (CI対応)"""
+
+import json, os, re, sys, tempfile
 from google.cloud import bigquery
 
-PROJECT = 'gen-lang-client-0315818888'
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/sexy/.config/gcloud/application_default_credentials.json'
+PROJECT = os.environ.get('BQ_PROJECT', 'gen-lang-client-0315818888')
+
+# CI: GCP_CREDENTIALS env → temp file → client
+_creds_json = os.environ.get('GCP_CREDENTIALS')
+if _creds_json:
+    _tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+    _tmp.write(_creds_json)
+    _tmp.close()
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = _tmp.name
+elif not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.expanduser(
+        '~/.config/gcloud/application_default_credentials.json'
+    )
 
 client = bigquery.Client(project=PROJECT)
 
