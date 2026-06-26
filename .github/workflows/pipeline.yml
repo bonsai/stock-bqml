@@ -65,9 +65,10 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: '**/requirements*.txt'
 
       - name: Install deps
-        run: pip install google-cloud-bigquery
+        run: pip install -r bronze/ingest/requirements.txt google-cloud-bigquery
 
       - name: Auth to GCP
         uses: google-github-actions/auth@v2
