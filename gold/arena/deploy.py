@@ -34,17 +34,46 @@ def run_file(path, label):
     run(raw, label)
 
 def split_statements(sql):
-    """Split SQL into individual CREATE statements"""
+    """Split SQL into individual statements, handling string literals."""
     parts = []
     current = []
+    in_string = False
+    string_char = None
     for line in sql.splitlines():
+        # Track string literals to avoid splitting on ; inside strings
+        i = 0
+        while i < len(line):
+            ch = line[i]
+            if in_string:
+                if ch == '\\':
+                    i += 2
+                    continue
+                if ch == string_char:
+                    in_string = False
+                    string_char = None
+            else:
+                if ch in ("'", '"'):
+                    in_string = True
+                    string_char = ch
+            i += 1
         current.append(line)
-        if line.strip().endswith(';'):
+        if line.strip().endswith(';') and not in_string:
             parts.append('\n'.join(current))
             current = []
     if current:
         parts.append('\n'.join(current))
-    return [p.strip() for p in parts if p.strip()]
+    # Filter: skip empty / comment-only / single-semicolon statements
+    filtered = []
+    for stmt in parts:
+        clean = stmt.strip()
+        if not clean or clean == ';' or clean.startswith('--'):
+            continue
+        # Skip if it's only comments and semicolons
+        lines = [l.strip() for l in clean.splitlines() if l.strip()]
+        if all(l.startswith('--') or l == ';' for l in lines):
+            continue
+        filtered.append(stmt)
+    return filtered
 
 # 1. Silver
 print("=== Silver ===")
