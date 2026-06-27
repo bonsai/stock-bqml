@@ -182,7 +182,7 @@ GH Actionsはパブリックリポジトリで無料（2000分/月）。
 </div>
 </body></html>"""
 
-path = os.path.join(os.path.dirname(__file__), "..", "..", "pages", "index.html")
+path = os.path.join(os.path.dirname(__file__), "..", "..", "ops", "index.html")
 os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, "w") as f:
     f.write(html)
