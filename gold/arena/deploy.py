@@ -31,6 +31,20 @@ def run(sql, label):
 
 def run_file(path, label):
     raw = open(path).read()
+    if label.startswith("momentum") or label in ("breakout", "volume_confirm", "reversal"):
+        retries = 3
+        for attempt in range(1, retries + 1):
+            try:
+                run(raw, label)
+                return
+            except Exception as e:
+                if "Concurrent" in str(e) or "can not be updated" in str(e):
+                    if attempt < retries:
+                        print(f"  ~   {label}: retry {attempt}/{retries} after 15s")
+                        import time
+                        time.sleep(15)
+                        continue
+                raise
     run(raw, label)
 
 def split_statements(sql):
@@ -110,13 +124,24 @@ for stmt in split_statements(raw):
     label = m.group(1) if m else '?'
     run(stmt, label)
 
-# 5. Backtest results
+# 5. Backtest results (then re-run arena_signals + leaderboard)
 print("\n=== Gold: Backtest Results ===")
 raw = open("gold/reports/backtest_accuracy.sql").read().replace('{{project}}', PROJECT)
 for stmt in split_statements(raw):
     m = re.search(r'TABLE\s+`?[\w.-]+`?\.(\w+)', stmt, re.IGNORECASE)
     label = m.group(1) if m else '?'
     run(stmt, label)
+
+# 5b. Re-run arena_signals + leaderboard (need backtest_results)
+print("\n=== Gold: Arena Post-Backtest ===")
+raw = open("gold/arena/arena.sql").read().replace('{{project}}', PROJECT)
+for stmt in split_statements(raw):
+    m = re.search(r'TABLE\s+`?[\w.-]+`?\.(\w+)', stmt, re.IGNORECASE)
+    label = m.group(1) if m else '?'
+    if label in ('arena_signals', 'arena_leaderboard'):
+        run(stmt, label)
+    elif label == 'arena_survival_log':
+        break  # stop after last relevant table
 
 # Verify
 print("\n=== Tables ===")
