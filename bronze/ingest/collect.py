@@ -29,12 +29,27 @@ TICKERS = [
 
 CSV_DIR = os.path.join(os.path.dirname(__file__), "data")
 
-def fetch_yfinance(tickers, days_back=730, interval="1d"):
-    """yfinance で一括ダウンロード"""
-    # 遅延import (optional dep)
+def fetch_yfinance(tickers, days_back=730, interval="1d", csv_dir=None):
+    """yfinance で一括ダウンロード（既存データがあれば差分のみ）"""
     import yfinance as yf
-    start = (datetime.today() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+    # 既存CSVから最新日付を検出
+    latest = None
+    if csv_dir:
+        fpath = os.path.join(csv_dir, "_combined.csv")
+        if os.path.exists(fpath):
+            with open(fpath) as f:
+                for row in csv.DictReader(f):
+                    if row["date"] > (latest or ""):
+                        latest = row["date"]
+    if latest:
+        start = (datetime.strptime(latest, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+        print(f"Existing data up to {latest}, fetching from {start}")
+    else:
+        start = (datetime.today() - timedelta(days=days_back)).strftime("%Y-%m-%d")
     end = datetime.today().strftime("%Y-%m-%d")
+    if start >= end:
+        print(f"  up-to-date (no fetch needed)")
+        return None
     print(f"Fetching {len(tickers)} tickers ({start}〜{end})...")
     data = yf.download(
         tickers,
@@ -167,7 +182,10 @@ if __name__ == "__main__":
                         help="BQデータセット (default: stock_bronze)")
     args = parser.parse_args()
 
-    data = fetch_yfinance(args.tickers, args.days, args.interval)
+    data = fetch_yfinance(args.tickers, args.days, args.interval, csv_dir=args.csv_dir)
+    if data is None:
+        print("No new data. Skip save.")
+        sys.exit(0)
     save_csvs(data, args.tickers, args.csv_dir)
     save_combined(data, args.tickers, args.csv_dir)
 
