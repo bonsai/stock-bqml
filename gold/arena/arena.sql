@@ -219,23 +219,23 @@ WITH weekly_pnl AS (
     FROM `{{project}}.stock_gold.backtest_results`
     UNION ALL
     SELECT '5_dow_specialist', date, symbol, (dow_signal * actual_return)
-    FROM arena_dow_signal
+    FROM `{{project}}.stock_gold.arena_dow_signal`
     JOIN `{{project}}.stock_gold.backtest_results` USING(date, symbol)
     UNION ALL
     SELECT '6_month_end_hunter', date, symbol, (month_end_signal * actual_return)
-    FROM arena_monthend_signal
+    FROM `{{project}}.stock_gold.arena_monthend_signal`
     JOIN `{{project}}.stock_gold.backtest_results` USING(date, symbol)
     UNION ALL
     SELECT '7_calm_before_storm', date, symbol, (calm_before_storm_signal * actual_return)
-    FROM arena_calm_before_storm_signal
+    FROM `{{project}}.stock_gold.arena_calm_before_storm_signal`
     JOIN `{{project}}.stock_gold.backtest_results` USING(date, symbol)
     UNION ALL
     SELECT '8_sentiment', date, symbol, (sentiment_signal * actual_return)
-    FROM arena_sentiment_signal
+    FROM `{{project}}.stock_gold.arena_sentiment_signal`
     JOIN `{{project}}.stock_gold.backtest_results` USING(date, symbol)
     UNION ALL
     SELECT '9_mean_reversion', date, symbol, (mean_rev_signal * actual_return)
-    FROM arena_mean_rev_signal
+    FROM `{{project}}.stock_gold.arena_mean_rev_signal`
     JOIN `{{project}}.stock_gold.backtest_results` USING(date, symbol)
     UNION ALL
     SELECT '10_ensemble', date, symbol, 0  -- Ensemble Captain: 実行時に計算

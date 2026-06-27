@@ -93,8 +93,14 @@ def split_statements(sql):
 print("=== Silver ===")
 run_file("silver/features/features_daily.sql", "features_daily")
 
-# 2. BQML model training
+# 2. BQML model training (skip if already exists)
 print("\n=== Gold: BQML Models ===")
+existing_models = set()
+try:
+    for row in client.query(f"SELECT model_name FROM `{PROJECT}.INFORMATION_SCHEMA.MODELS`").result():
+        existing_models.add(row.model_name)
+except:
+    pass
 for model_file in [
     "gold/models/train_momentum.sql",
     "gold/models/train_breakout.sql",
@@ -102,6 +108,9 @@ for model_file in [
     "gold/models/train_reversal.sql",
 ]:
     label = os.path.splitext(os.path.basename(model_file))[0].replace("train_", "")
+    if label in existing_models:
+        print(f"  ~   {label}: exists, skip")
+        continue
     run_file(model_file, label)
 
 # 3. Gold: Rule signals (from arena.sql)
