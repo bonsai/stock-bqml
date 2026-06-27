@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""scripts/gen_dashboard.py — stock-bqml 状況ダッシュボード (HTML)"""
+"""gold/reports/gen_dashboard.py — stock-bqml 状況ダッシュボード (HTML)"""
 import json, os, subprocess, tempfile
 from datetime import datetime, timezone, timedelta
 from google.cloud import bigquery
@@ -182,7 +182,8 @@ GH Actionsはパブリックリポジトリで無料（2000分/月）。
 </div>
 </body></html>"""
 
-path = "/mnt/c/Users/dance/Documents/MEGA/stock-bqml/dashboard.html"
+path = os.path.join(os.path.dirname(__file__), "..", "..", "pages", "index.html")
+os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, "w") as f:
     f.write(html)
 print(f"Dashboard: {path}")
