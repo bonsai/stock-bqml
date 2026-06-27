@@ -31,14 +31,14 @@ backtest:
 
 dashboard:
 	python3 gold/reports/gen_dashboard.py
-	@echo "→ ops/index.html"
+	@echo "→ gold/reports/dashboard.html"
 
 battlefield:
 	python3 gold/reports/gen_battlefield.py
-	@echo "→ pages/index.html (deploy: make deploy-cf)"
+	@echo "→ gold/reports/battlefield.html (deploy: make deploy-cf)"
 
 deploy-cf:
-	cmd.exe /c "wrangler pages deploy pages\ --project-name=stock-bqml-dashboard --branch=main"
+	cmd.exe /c "wrangler pages deploy gold\reports\battlefield.html --project-name=stock-bqml-dashboard --branch=main"
 
 # 全パイプライン: 収集→BQ
 all: collect deploy

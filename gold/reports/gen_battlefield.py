@@ -7,7 +7,6 @@ from google.cloud import bigquery
 PROJECT = os.environ.get('BQ_PROJECT', 'gen-lang-client-0315818888')
 TZ_JST = timezone(timedelta(hours=9))
 NOW = datetime.now(TZ_JST)
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 _creds_json = os.environ.get('GCP_CREDENTIALS')
 if _creds_json:
@@ -19,7 +18,7 @@ if _creds_json:
 client = bigquery.Client(project=PROJECT)
 
 # Load agent personas
-with open(os.path.join(ROOT, "gold", "reports", "agents.json")) as f:
+with open(os.path.join(os.path.dirname(__file__), "agents.json")) as f:
     AGENTS = json.load(f)
 
 # ── 1. Leaderboard ──
@@ -145,7 +144,7 @@ body {{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgr
 </div>
 </body></html>"""
 
-path = os.path.join(ROOT, "pages", "index.html")
+path = os.path.join(os.path.dirname(__file__), "battlefield.html")
 os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, "w") as f:
     f.write(html)
