@@ -38,7 +38,7 @@ battlefield:
 	@echo "→ gold/reports/battlefield.html (deploy: make deploy-cf)"
 
 deploy-cf:
-	cmd.exe /c "wrangler pages deploy gold\reports\battlefield.html --project-name=stock-bqml-dashboard --branch=main"
+	cd gold/reports && bash deploy-cf.sh
 
 # 全パイプライン: 収集→BQ
 all: collect deploy
